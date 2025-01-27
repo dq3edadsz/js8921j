@@ -21,9 +21,24 @@ pip install cryptography
 pip install mgzip
 pip install --extra-index-url=https://pypi.nvidia.com cudf-cu12==23.12.*
 
-### links to DTE model and datasets
+### links to the trained DTE model
+
+This code includes implementation of two DTE models: Markov DTE (CCS'16) and Incremental DTE (USENIX'21). We link their single-password model (4gram Markov). Their Single-similar password models (SSPM) are already incorporated in the uploaded code.
+
+- 4gram cumulative probability model (trained on password dataset **Rockyou**)
+- 4gram cumulative probability model (trained on password dataset **Neopets**)
+
+download the model above in the directory "/bubble/MSPM/SPM/trained/full/4gram/"
+
+### links to password dataset
+
+Here we only provide link to Rockyou dataset. Another password dataset, Neopets, seems still not widespread on the Internet. We can provide Neopets when required upon email.
+
+download the dataset under the directory "/data/"
 
 ## Running
+
+
 
 ## Experimenting
 
@@ -85,3 +100,4 @@ pcfg.py
 
 metric.py
 --logical --intersection
+
