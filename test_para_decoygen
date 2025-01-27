@@ -1,0 +1,161 @@
+        def decoygensspm_para_test(self, num, length, seed, basepw):
+        """
+
+        :param dte:
+        :param num:
+        :return: list of decoy pws with length num
+        """
+        pws = np.ones(SEED_LEN * num * length, dtype=np.int) + 10000
+        probs = np.ones(SEED_LEN * num * length, dtype=np.int) + 10000
+        #   length
+        #   dr or ndr start = self.decode_seed(self.modi_ruleset['nDR'], seeds.pop(0))
+        threadsperblock = (32, 32)
+        blockspergrid_x = math.ceil(num * length * 4 / threadsperblock[0])
+        blockspergrid_y = math.ceil(3 / threadsperblock[1])
+        blockspergrid = (blockspergrid_x, blockspergrid_y)
+        # s_ = time()
+        # seed, an_cum, dn_cum, char_cum, decodelength, seedlength, pws, max_length
+        sspmreuse_lst = []
+        for rei in range(1, 50):
+            right_dictmp = self.dte.set_sspmreuse(rei)
+            counts = [c['count'] for c in list(right_dictmp.values())[1:]]  # exclude 'count' from the right_dic
+            sspmreuse_lst.append([sum(counts[:i + 1]) for i in range(len(counts))])
+        for i in range(4):
+            if i == 0:  # i: 0 -> drornot
+                cumlst = [self.stripcount(self.dte.modi_ruleset)] * 3  # starting from non-zero
+            elif i == 1:  # 1 -> portion
+                cumlst = [self.stripcount(self.dte.modi_ruleset['nDR'])] * 3
+            else:  # i == 2, 3 -> operation (head, tail)
+                cumlst = []
+                for portion in list(self.dte.modi_ruleset['nDR'].keys())[1:]:
+                    if portion == 'Head_Tail':
+                        if i == 2:
+                            cumlst.append(self.stripcount(self.dte.modi_ruleset['nDR']['Head_Tail']['Head']))
+                        else:
+                            cumlst.append(self.stripcount(self.dte.modi_ruleset['nDR']['Head_Tail']['Tail']))
+                    else:
+                        cumlst.append(self.stripcount(self.dte.modi_ruleset['nDR'][portion]))
+            rule_decode[blockspergrid, threadsperblock](seed, i, 4, SEED_LEN, pws, np.array(cumlst),
+                                                        num * length * 4,
+                                                        self.offsetmap, np.array(sspmreuse_lst), length, probs)
+        #   modifying number and chars decode (# parallel decode)
+        blockspergrid_x = math.ceil(num * length * (SSPM_CHARS_MAX * 2 + 4) / threadsperblock[0])
+        blockspergrid_y = math.ceil((len(ALPHABET) - 1) / threadsperblock[1])
+        blockspergrid = (blockspergrid_x, blockspergrid_y)
+        # s_ = time()
+        # seed, an_cum, dn_cum, char_cum, decodelength, seedlength, pws, max_length
+        num_chardecode[blockspergrid, threadsperblock](seed, np.array(list(self.dte.alphabet_dict['AN'].values())),
+                                                       np.array(list(self.dte.alphabet_dict['DN'].values())),
+                                                       np.array(list(self.dte.alphabet_dict['alp'].values())),
+                                                       SSPM_CHARS_MAX * 2 + 4, SEED_LEN, pws,
+                                                       num * length * (SSPM_CHARS_MAX * 2 + 4), probs)
+        # print('decode modifying number and chars parallely using =>', time() - s_)
+        # assemble pws (indx of list)
+        return self.assemble_sspmtest(0, num, length, pws, basepw)
+
+    def assemble_sspmtest(self, start, num, length, pws, basepw):
+        """
+
+        :param start: as unit of pwvault
+        :param num: as unit of pwvault
+        :param length: actual length
+        :param pws:
+        :param basepw:
+        :return:
+        """
+        pwrules = np.array(['Delete-then-add'] * (4 * num * length))
+        drornot = list(self.dte.modi_ruleset.keys())[1:]
+        portion = list(self.dte.modi_ruleset['nDR'].keys())[1:]
+        portlst = []
+        for port in list(self.dte.modi_ruleset['nDR'].keys())[1:]:
+            if port == 'Head_Tail':
+                dictmp = {'Head': list(self.dte.modi_ruleset['nDR']['Head_Tail']['Head'].keys())[1:]}
+                dictmp['Tail'] = list(self.dte.modi_ruleset['nDR']['Head_Tail']['Tail'].keys())[1:]
+                portlst.append(dictmp)
+            else:
+                portlst.append(list(self.dte.modi_ruleset['nDR'][port].keys())[1:])
+        pws_tmp = pws[start * length * SEED_LEN: SEED_LEN * (length * (start + num))]
+        for i in range(num * length):
+            pwrules[i * 4] = drornot[pws_tmp[i * SEED_LEN + self.offsetmap[0]]]
+            if pwrules[i * 4] == 'DR':
+                continue
+            portid = pws_tmp[i * SEED_LEN + self.offsetmap[1]]
+            pwrules[i * 4 + 1] = portion[portid]
+            if pwrules[i * 4 + 1] == 'Head_Tail':
+                pwrules[i * 4 + 2] = portlst[portid]['Head'][pws_tmp[i * SEED_LEN + self.offsetmap[2]]]
+                pwrules[i * 4 + 3] = portlst[portid]['Tail'][pws_tmp[i * SEED_LEN + self.offsetmap[3]]]
+            else:
+                pwrules[i * 4 + 2] = portlst[portid][pws_tmp[i * SEED_LEN + self.offsetmap[2]]]
+                pwrules[i * 4 + 3] = portlst[portid][pws_tmp[i * SEED_LEN + self.offsetmap[3]]]
+        vaults = {}
+        alp = np.array(list(self.dte.alphabet_dict['alp'].keys()))
+        an = np.array(list(self.dte.alphabet_dict['AN'].keys()))
+        dn = np.array(list(self.dte.alphabet_dict['DN'].keys()))
+        for vid in range(num):
+            vault = [basepw]
+            for i in range(length):
+                pw = pws_tmp[(vid * length + i) * SEED_LEN: (vid * length + i + 1) * SEED_LEN]
+                pwrule = pwrules[(vid * length + i) * 4: (vid * length + i + 1) * 4]
+                if pwrule[0] == 'DR':
+                    vault.append(basepw)
+                else:
+                    newpw = basepw
+                    if 'Head' in pwrule[1]:
+                        if 'Delete' in pwrule[2]:
+                            newpw = newpw[int(dn[int(pw[4])]):]
+                        if 'dd' in pwrule[2]:
+                            newpw = ''.join(alp[pw[6: 6 + int(an[int(pw[5])])]]) + newpw
+                    if 'Tail' in pwrule[1]:
+                        if 'Delete' in pwrule[3]:
+                            newpw = newpw[:-int(dn[pw[SEED_LEN // 2 + 2]])]
+                        if 'dd' in pwrule[3]:
+                            newpw = newpw + ''.join(
+                                alp[pw[SEED_LEN // 2 + 4: SEED_LEN // 2 + 4 + int(an[int(pw[SEED_LEN // 2 + 3])])]])
+                    vault.append(newpw)
+            vaults[vid] = vault
+        return vaults
+
+    def decoygen_para_test(self, num=None, seed=None):
+        """
+
+        :param dte:
+        :param num:
+        :return: list of decoy pws with length num
+        """
+        pws = np.ones(SEED_LEN * num, dtype=np.int)
+        probs = np.ones(SEED_LEN * num, dtype=np.float32)
+        markov_ids = np.ones(num)
+        #   length
+        for i in tqdm(range(num), miniters=int(num / 10000), unit="pw_len"):
+            pws[int(i * SEED_LEN)] = self.dte.decode_len(seed[int(i * SEED_LEN)])  # could have length prob
+
+        #   ip (para)
+        for i in range(num):
+            pw_len = pws[int(i * SEED_LEN)] + self.dte.seed_length_rec
+            if pw_len in TRAIN_LENGTH:
+                markov_id = TRAIN_LENGTH.index(pw_len)
+            else:
+                markov_id = len(TRAIN_LENGTH)
+            markov_ids[i] = markov_id
+        threadsperblock = (32, 32)
+        blockspergrid_x = math.ceil(num / threadsperblock[0])
+        blockspergrid_y = math.ceil(self.dte.no_ip_ngrams / threadsperblock[1])
+        blockspergrid = (blockspergrid_x, blockspergrid_y)
+        s_ = time()
+        ngramip_decodepw[blockspergrid, threadsperblock](seed, self.dte.ip_list, SEED_LEN, pws,
+                                                         markov_ids, self.dte.no_ip_ngrams, probs)
+        print('decode ip parallely using =>', time() - s_)
+
+        #   cp (# parallel decode)
+        blockspergrid_x = math.ceil(num / threadsperblock[0])
+        blockspergrid_y = math.ceil((len(ALPHABET) - 1) / threadsperblock[1])
+        blockspergrid = (blockspergrid_x, blockspergrid_y)
+        s_ = time()
+        for i in range(2, MAX_PW_LENGTH):
+            ngramcp_decodepw[blockspergrid, threadsperblock](seed, self.dte.cp_list, SEED_LEN, pws,
+                                                             len(ALPHABET), markov_ids, self.dte.no_cp_ngrams, i,
+                                                             self.dte.ngram_size, probs)
+        print('decode cp parallely using =>', time() - s_)
+        # assemble pws (indx of list)
+        pws, probs_ = self.assemble_idx(pws, probs, self.dte)
+        return pws, probs

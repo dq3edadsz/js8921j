@@ -1,0 +1,12 @@
+{
+    "name" : "Development",
+    "eval_file" : "eval.txt",
+    "training_file" : "/home/beeno/pycharm/py_code/HE_expand/incremental_vault/data/singles.org-withcount.txt",
+    "alphabet" : " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~",
+    "lengths" : [6],
+    "ngram_size" : 4,
+    "laplace_smooth" : 1,
+    "no_cpus" : 8,
+    "progress_bar": true
+}
+

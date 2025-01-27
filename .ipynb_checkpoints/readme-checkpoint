@@ -1,0 +1,20 @@
+TODO:
+    1. unreused_prob.py needed to be further assured (method to determine prob calculation)
+    2. SSPM's reuse rule should be further modified according to paper to avoid ambiguity
+    3. Setting of SPM needed to be further assured, and how to reduce training cost
+    4. calculate the coding sequence without considering the length code (first one in the seed sequence)?
+    5. head_tail rule is supposed to be coded with the seperate of head and tail (or first head then tail)?
+    6. sspm needs to be enlagred (train on not only pastebin, leads to unbalance when choosing among spm and sspm
+	sspm may be first trained on rockyou set and then on pastebin
+    7. randomness is not achived
+    8. the python package needed to be aligned
+    9. could set a password length table (according to trainset) for encoding of spm, which could be more convincing!
+
+
+Debug vault:
+    vault_t = Vault('beeno', '123456')
+    vault_t.init_vault()
+    vault_t.get_pw()
+    vault_t.add_pw()
+        case1 => existed domain
+        case2 => unexisted domain

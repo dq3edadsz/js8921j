@@ -1,0 +1,10 @@
+{
+    "name" : "Development",
+    "eval_file" : "eval.txt",
+    "training_file" : "/home/beeno/Dropbox/research_project/pycharm/incremental_vault_gpu/data/rockyou-withcount",
+    "ngram_size" : 4,
+    "laplace_smooth" : 1,
+    "laplace_smooth_compensation_scaler" : 1000,
+    "no_cpus" : 8,
+    "progress_bar": true
+}
