@@ -5,21 +5,20 @@ Bubble is the first framework for protecting honey vaults from Credential-Guided
 ## Table of contents
 
 - Requirements
-- Running
+- Implementation of Bubble
 - Experimenting
 
 ## Requirements
 
-pip3 install pycryptodome
-pip3 install publicsuffix
-pip3 install numpy
-pip3 install rainbow_logging_handler
-pip install msgpack
-pip install tqdm
-pip install pylcs
-pip install cryptography
-pip install mgzip
-pip install --extra-index-url=https://pypi.nvidia.com cudf-cu12==23.12.*
+- pip3 install pycryptodome
+- pip3 install publicsuffix
+- pip3 install numpy
+- pip3 install rainbow_logging_handler
+- pip install msgpack
+- pip install tqdm
+- pip install pylcs
+- pip install cryptography
+- pip install --extra-index-url=https://pypi.nvidia.com cudf-cu12==23.12.*
 
 ### links to the trained DTE model
 
@@ -30,74 +29,47 @@ This code includes implementation of two DTE models: Markov DTE (CCS'16) and Inc
 
 download the model above in the directory "/bubble/MSPM/SPM/trained/full/4gram/"
 
+## Implementation of Bubble
+
+Implementation of Bubble is in vault.py under the directory "/Vault_system/"
+
+Specifically, there is a **vault** class, including high-level functions **init_vault**(pwvault), **load_vault**(), **get_pw**(), **add_pw**(pw, dm), where *pwvault* is a password vault in the form of a dictionary with *dm* (website domain) as key and *pw* (website password) as value.
+
+## Experimenting
+
+The experiment simulates the attacker's online verification process. That said, we skip the offline gueessing process, giving attackers the candidate list after brute forcing the space of master secrets. Attackers remove and rank guesses following the CGA attack model and later online verify candidate list.
+
 ### links to password dataset
 
 Here we only provide link to Rockyou dataset. Another password dataset, Neopets, seems still not widespread on the Internet. We can provide Neopets when required upon email.
 
 download the dataset under the directory "/data/"
 
-## Running
+### run the attacks
 
+attacker.py and run in the command
+--model_eval mspm --victim MSPM --physical --withleak --softfilter --logical --spmdata rockyou --exp_pastebinsuffix _bc200 --pin RockYou-6-digit.txt --pinlength 6 --intersection --fixeditv --fixeditvmode 1 --version_gap 1 --isallleaked 0 --gpu 0
 
+the command above uses **MSPM** (--victim) to instantiate Bubble, **rockyou** as the password data set (--spmdata), test set **bc200** (--exp_pastebinsuffix), adopt 6-ditgit PIN (--pinlength), bubble+ (--fixeditv --fixeditvmode 1). The attack conducts both single-version attacks and multi-version attacks (based on two consecutive versions, --version_gap 1 --isallleaked 0)
 
-## Experimenting
+To modify the experiments, feel free to change the command by referring to the comments below.
 
 ### change password vault dataset
 
 1. train pcfg model (markov model is trained based on password dataset)
 2. fit unreuse(i) function and parameter "alpha"
 
-### change victim (MSPM or Golla)
+### change instantiation DTE (MSPM or Golla)
 
 1. change args.victim
 
-### experiments shift (between datasets) checklist
+### Commands checklist
 
-0. pcfg model path "--exp_pastebinsuffix" (option: _pb, _bc50, _bc200); bubble or bubble+
-1. "PASTB_PATH" setting
-2. "ALPHA" and function "unreuse_p(i)" in unreused_prob.py
-2.1 dte_global wether under comment
-2.2 check whether DTE with or without bubble
-3. others following ## experiments shift (between parameters) checklist
-
-### experiments shift (between parameters) checklist
-
-0. check "incremental_vault_gpu/data/breachcompilation/fold2/fold_0_1.json" testset
-0.1. check whether only run "multi-version attack" if wants both
-1. check parameters: 'mpwbatch',
-2. check "weight.py" whether loaded 14000+ vaults instead of 100 for debugging
-3. check "outputdir" in attack.py
-4. check whether golla's rank & cheng's rank & wang'rank all need to run (wang's weight calculation returns sp_prob #[sp_prob, vault_decoyprob] and #addition_weight(batch_bundle) and #median_rankid=2)
-4.1 check online verification runs, 'onlineverification_result' from func 'find_real_candidatelist'
-5. settings for T, pin, Nitv
-
-attacker.py
---model_eval mspm --victim MSPM --physical --withleak --softfilter --logical --spmdata neopets --exp_pastebinsuffix _bc100 --pin RockYou-6-digit.txt --pinlength 6 --fixeditv --fixeditvmode 1 --intersection --version_gap 1 --isallleaked 0 --gpu 1
-
-pcfg.py
---multi_train --exp_pastebinsuffix _bc50
-
-
-how to split dataset pastebin
-1. set 'num_files' wanted to split uniformly and randomly, and the 'repeat_num' that will determine how many splits for entire dataset happens; and run train_test_split.py
-2. run pcfg.py to train sspm model on splited dataset (randomly copy a dict and rule model with names without number for preloading, it does not matter). Note that for each repeat of splited dataset, an independent model will be trained
-    add arguments: --exp_pastebinsuffix 'num_files'_Nge5 --multi_train
-    
-
-run attack 1&2 under construction 2 experiment:
---model_eval mspm --victim MSPM --physical --withleak --softfilter --logical --pin RockYou-4-digit.txt --intersection --exp_pastebinsuffix 2_Nge5 --fixeditv --fixeditvmode 1
-
-run attack 1&2 under construction 1 experiment:
---model_eval mspm --victim MSPM --physical --withleak --softfilter --logical --pin RockYou-4-digit.txt --intersection --exp_pastebinsuffix 2_Nge5
-
-
-attacker.py
---model_eval mspm --victim MSPM --physical --withleak --softfilter --logical --pin RockYou-6-digit.txt --intersection --exp_pastebinsuffix 2_Nge5 --expandtestset --fixeditv --fixeditvmode 1
-
-
-pcfg.py
---exp_pastebinsuffix 2_Nge5 --multi_train
-
-metric.py
---logical --intersection
+0. pcfg model path "--exp_pastebinsuffix" (option: _pb, _bc50, _bc200); 
+1. bubble (remove --fixeditv --fixeditvmode 1) or bubble+
+2. "PASTB_PATH" setting
+3. "ALPHA" and function "unreuse_p(i)" in unreused_prob.py
+4. check "incremental_vault_gpu/data/breachcompilation/fold2/fold_0_1.json" testset
+5. check "outputdir" in attack.py
+6. settings for T, pin, Nitv
 
